@@ -2,12 +2,11 @@ from collections import OrderedDict
 from collections.abc import Callable, Hashable
 import time
 from typing import NamedTuple
-import functools
 
 # =============================================================================================
 
 class _TimedLRUCacheItem[T](NamedTuple):
-    """Hold the timed value in TimedLRUCache"""
+    """Holds the timed value in TimedLRUCache."""
 
     value: T
     time_added: float
@@ -57,7 +56,7 @@ class TimedLRUCache[T]:
             self._cache.pop(key)
             return None
 
-        # move key to end and return item
+        # move item up in the cache and return the item
         self._cache.move_to_end(key)
 
         return item.value
@@ -67,14 +66,14 @@ class TimedLRUCache[T]:
     def add(self, key: Hashable, value: T, time_added: float | None = None) -> None:
         """Add or update value in cache under the key."""
 
-        ct = time.time() if time_added is None else time_added
+        ta = time.time() if time_added is None else time_added
 
         # cap reached, evict least used item
         if self._max_size and len(self._cache) == self._max_size:
             self._cache.popitem(last=False)
 
         # add the value, timestamp the value
-        self._cache[key] = _TimedLRUCacheItem(value, ct)
+        self._cache[key] = _TimedLRUCacheItem(value, ta)
 
         # move the new key up
         self._cache.move_to_end(key)
@@ -106,15 +105,15 @@ class _TimedLRUCacheInfo(NamedTuple):
 # =============================================================================================
 
 class _TimedLRUCacheWrapper[**P, T]:
-    """Wrapper to apply timed lru cache on a function."""
+    """Class to create a wrapper to apply timed lru cache on a function."""
 
     def __init__(
         self, fn: Callable[P, tuple[T, float | None]], max_size: int = None, ttl: float = None
     ):
-        """Return a wrapper that applies a timed lru cache on the target func."""
+        """Creates a wrapper that applies a timed lru cache on the target func."""
 
         self._wrapped = fn
-        self._time_lru_cache = TimedLRUCache[T](max_size=max_size, ttl=ttl)
+        self._timed_lru_cache = TimedLRUCache[T](max_size=max_size, ttl=ttl)
         self._hits = 0
         self._misses = 0
         self._max_size = max_size
@@ -126,12 +125,12 @@ class _TimedLRUCacheWrapper[**P, T]:
 
         call_args = args + tuple(kwargs.items())
 
-        res = self._time_lru_cache.get(call_args)
+        res = self._timed_lru_cache.get(call_args)
 
         if res is None:
             self._misses += 1
             res, add_ts = self._wrapped(*args, **kwargs)
-            self._time_lru_cache.add(call_args, res, time_added=add_ts)
+            self._timed_lru_cache.add(call_args, res, time_added=add_ts)
         else:
             self._hits += 1
 
@@ -140,18 +139,18 @@ class _TimedLRUCacheWrapper[**P, T]:
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def cache_info(self) -> _TimedLRUCacheInfo:
-        """Return current state of the timed lru cache."""
+        """Return current state of the underlying timed lru cache."""
 
         return _TimedLRUCacheInfo(
-            self._hits, self._misses, len(self._time_lru_cache), self._max_size
+            self._hits, self._misses, len(self._timed_lru_cache), self._max_size
         )
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def clear(self) -> None:
-        """Clear the cache of the wrapped function."""
+        """Clear the underlying lru cache of the wrapped function."""
 
-        self._time_lru_cache.clear()
+        self._timed_lru_cache.clear()
         self._hits = 0
         self._misses = 0
 
