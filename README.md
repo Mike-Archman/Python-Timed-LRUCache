@@ -3,7 +3,7 @@
 This implements a lru cache system that has time-to-live control option which in turn can be controlled at per value level.
 
 Example Usage:
-```
+```py
 from timed_lru_caching import timed_lru_cache
 
 THE_SET_TTL = 10 * 60 # seconds
